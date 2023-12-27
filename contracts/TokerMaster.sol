@@ -23,9 +23,12 @@ contract TokenMaster is ERC721 {
     mapping(uint256 => mapping(address => bool)) public hasBought;
     mapping(uint256 => mapping(uint256 => address)) public seatTaken;
     mapping(uint256 => uint256[]) seatsTaken;
+    mapping(address => uint) public ticketsPurchased;
+    event TransactionSent(address indexed sender, uint256 amount);
+
 
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Not the owner");
         _;
     }
 
@@ -34,6 +37,8 @@ contract TokenMaster is ERC721 {
         string memory _symbol
     ) ERC721(_name, _symbol) {
         owner = msg.sender;
+        
+        
     }
 
     function list(
@@ -58,14 +63,14 @@ contract TokenMaster is ERC721 {
     }
 
     function mint(uint256 _id, uint256 _seat) public payable {
-        
+
         require(_id != 0);
         require(_id <= totalOccasions);
 
-      
+
         require(msg.value >= occasions[_id].cost);
 
-        
+
         require(seatTaken[_id][_seat] == address(0));
         require(_seat <= occasions[_id].maxTickets);
 
@@ -88,9 +93,16 @@ contract TokenMaster is ERC721 {
     function getSeatsTaken(uint256 _id) public view returns (uint256[] memory) {
         return seatsTaken[_id];
     }
-
+    function sendTransaction() external payable {
+        require(msg.value > 0, "Amount must be greater than 0");
+        emit TransactionSent(msg.sender, msg.value);
+    }
+    
     function withdraw() public onlyOwner {
         (bool success, ) = owner.call{value: address(this).balance}("");
         require(success);
+    }
+    function sayHello() external pure returns (string memory) {
+        return "Hello world!!";
     }
 }

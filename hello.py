@@ -14,7 +14,7 @@ web3.eth.defaultAccount = web3.eth.accounts[0]
 
 compiled_contract_path = "build/contracts/HelloWorld.json"
 
-deployed_contract_address = ("DEPLOYED_CONTRACT_ADDRESSES")
+deployed_contract_address = "DEPLOYED_CONTRACT_ADDRESSES"
 
 with open(compiled_contract_path) as file:
     contract_json = json.load(file)

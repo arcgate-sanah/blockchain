@@ -20,9 +20,7 @@ contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi
 
 def send_transaction():
 
-    sender_private_key = env(
-        "SENDER_PRIVATE_KEY"
-    )
+    sender_private_key = env("SENDER_PRIVATE_KEY")
 
     sender_address = env("SENDER_ADDRESS")
 

@@ -2,11 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract TokenMaster is ERC721 {
     address public owner;
     uint256 public totalOccasions;
     uint256 public totalSupply;
+    using SafeMath for uint256;
 
     struct Occasion {
         uint256 id;
@@ -17,6 +19,8 @@ contract TokenMaster is ERC721 {
         string date;
         string time;
         string location;
+        uint256 seatsBooked;
+        address[] ownershipHistory;
     }
 
     mapping(uint256 => Occasion) occasions;
@@ -25,7 +29,20 @@ contract TokenMaster is ERC721 {
     mapping(uint256 => uint256[]) seatsTaken;
     mapping(address => uint) public ticketsPurchased;
     event TransactionSent(address indexed sender, uint256 amount);
+    event LogSeatTaken(uint256 occasionId, uint256 seatNumber, address buyer);
 
+    event TicketPurchased(
+        uint256 occasionId,
+        uint256 seatNumber,
+        uint256 ticketCost,
+        address buyer
+    );
+    event TicketRefunded(
+        uint256 occasionId,
+        uint256 seatNumber,
+        uint256 refundAmount,
+        address buyer
+    );
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -37,8 +54,6 @@ contract TokenMaster is ERC721 {
         string memory _symbol
     ) ERC721(_name, _symbol) {
         owner = msg.sender;
-        
-        
     }
 
     function list(
@@ -58,32 +73,114 @@ contract TokenMaster is ERC721 {
             _maxTickets,
             _date,
             _time,
-            _location
+            _location,
+            0,
+            new address[](0)
         );
     }
 
-    function mint(uint256 _id, uint256 _seat) public payable {
+    function bookTicket(uint256 _id, uint256 _seat) public payable {
+        Occasion storage occasion = occasions[_id];
+        // Check if the occasion exists
+        require(occasion.id != 0, "Invalid occasion ID");
 
-        require(_id != 0);
-        require(_id <= totalOccasions);
+        // Check if the seat is available
+        require(
+            _seat > 0 && _seat <= occasion.maxTickets,
+            "Invalid seat number"
+        );
 
+        // Check if the seat is already taken
+        require(
+            seatTaken[occasion.id][_seat] == address(0),
+            "Seat is already taken at this address"
+        );
+        // Check if all seats are booked
+        require(
+            occasion.seatsBooked < occasion.maxTickets,
+            "All seats are booked"
+        );
+        // Check if the buyer sent enough Ether
+        uint256 ticketCost = occasion.cost;
+        require(msg.value >= ticketCost, "Insufficient funds");
 
-        require(msg.value >= occasions[_id].cost);
+        // Update ticket count and deduct the cost
+        occasion.tickets = occasion.tickets.add(1);
+        occasion.seatsBooked = occasion.seatsBooked.add(1);
+        seatTaken[occasion.id][_seat] = msg.sender;
+        hasBought[occasion.id][msg.sender] = true;
+        seatsTaken[occasion.id].push(_seat);
 
-
-        require(seatTaken[_id][_seat] == address(0));
-        require(_seat <= occasions[_id].maxTickets);
-
-        occasions[_id].tickets -= 1;
-
-        hasBought[_id][msg.sender] = true; 
-        seatTaken[_id][_seat] = msg.sender; 
-
-        seatsTaken[_id].push(_seat); 
-
+        // Transfer Ether to the owner
+        payable(owner).transfer(ticketCost);
         totalSupply++;
 
-        _safeMint(msg.sender, totalSupply);
+        // Mint ERC721 token to the buyer
+        _mint(msg.sender, totalSupply);
+
+        // Add the buyer to the ownership history
+        occasion.ownershipHistory.push(msg.sender);
+        emit LogSeatTaken(occasion.id, _seat, msg.sender);
+
+        // Emit a custom event for the ticket purchase
+        emit TicketPurchased(occasion.id, _seat, ticketCost, msg.sender);
+    }
+
+    function refundTicket(
+        uint256 _occasionId,
+        uint256 _seatNumber
+    ) external onlyOwner {
+        Occasion storage occasion = occasions[_occasionId];
+
+        // Check if the occasion exists
+        require(occasion.id != 0, "Invalid occasion ID");
+
+        // Check if the seat is within valid range
+        require(
+            _seatNumber > 0 && _seatNumber <= occasion.maxTickets,
+            "Invalid seat number"
+        );
+
+        // Check if the seat is taken by a buyer
+        address buyer = seatTaken[occasion.id][_seatNumber];
+        require(buyer != address(0), "Seat is not taken");
+
+        // Check if the buyer has actually bought the ticket
+        require(hasBought[occasion.id][buyer], "Buyer has not bought a ticket");
+
+        // Refund the cost of the ticket
+        uint256 refundAmount = occasion.cost;
+        (bool success, ) = payable(buyer).call{value: refundAmount}("");
+        require(success, "Refund failed");
+
+        // Update state
+        occasion.tickets = occasion.tickets.sub(1);
+        occasion.seatsBooked = occasion.seatsBooked.sub(1);
+        seatTaken[occasion.id][_seatNumber] = address(0);
+        hasBought[occasion.id][buyer] = false;
+
+        // Emit an event for the refund
+        emit TicketRefunded(occasion.id, _seatNumber, refundAmount, buyer);
+    }
+
+    function getSeatInfo(
+        uint256 _occasionId,
+        uint256 _seatNumber
+    ) public view returns (uint256 cost, address buyer) {
+        Occasion storage occasion = occasions[_occasionId];
+
+        require(occasion.id != 0, "Invalid occasion ID");
+        require(
+            _seatNumber > 0 && _seatNumber <= occasion.maxTickets,
+            "Invalid seat number"
+        );
+
+        cost = occasion.cost;
+        buyer = seatTaken[occasion.id][_seatNumber];
+        // Ensure that buyer is not the zero address
+        require(buyer != address(0), "Seat is not taken");
+
+        return (cost, buyer);
     }
 
     function getOccasion(uint256 _id) public view returns (Occasion memory) {
@@ -93,15 +190,17 @@ contract TokenMaster is ERC721 {
     function getSeatsTaken(uint256 _id) public view returns (uint256[] memory) {
         return seatsTaken[_id];
     }
+
     function sendTransaction() external payable {
         require(msg.value > 0, "Amount must be greater than 0");
         emit TransactionSent(msg.sender, msg.value);
     }
-    
+
     function withdraw() public onlyOwner {
         (bool success, ) = owner.call{value: address(this).balance}("");
         require(success);
     }
+
     function sayHello() external pure returns (string memory) {
         return "Hello world!!";
     }

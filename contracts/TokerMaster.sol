@@ -81,48 +81,36 @@ contract TokenMaster is ERC721 {
 
     function bookTicket(uint256 _id, uint256 _seat) public payable {
         Occasion storage occasion = occasions[_id];
-        // Check if the occasion exists
         require(occasion.id != 0, "Invalid occasion ID");
-
-        // Check if the seat is available
         require(
             _seat > 0 && _seat <= occasion.maxTickets,
             "Invalid seat number"
         );
-
-        // Check if the seat is already taken
         require(
             seatTaken[occasion.id][_seat] == address(0),
             "Seat is already taken at this address"
         );
-        // Check if all seats are booked
         require(
             occasion.seatsBooked < occasion.maxTickets,
             "All seats are booked"
         );
-        // Check if the buyer sent enough Ether
         uint256 ticketCost = occasion.cost;
         require(msg.value >= ticketCost, "Insufficient funds");
 
-        // Update ticket count and deduct the cost
         occasion.tickets = occasion.tickets.add(1);
         occasion.seatsBooked = occasion.seatsBooked.add(1);
         seatTaken[occasion.id][_seat] = msg.sender;
         hasBought[occasion.id][msg.sender] = true;
         seatsTaken[occasion.id].push(_seat);
 
-        // Transfer Ether to the owner
         payable(owner).transfer(ticketCost);
         totalSupply++;
 
-        // Mint ERC721 token to the buyer
         _mint(msg.sender, totalSupply);
 
-        // Add the buyer to the ownership history
         occasion.ownershipHistory.push(msg.sender);
         emit LogSeatTaken(occasion.id, _seat, msg.sender);
 
-        // Emit a custom event for the ticket purchase
         emit TicketPurchased(occasion.id, _seat, ticketCost, msg.sender);
     }
 
@@ -132,34 +120,27 @@ contract TokenMaster is ERC721 {
     ) external onlyOwner {
         Occasion storage occasion = occasions[_occasionId];
 
-        // Check if the occasion exists
         require(occasion.id != 0, "Invalid occasion ID");
 
-        // Check if the seat is within valid range
         require(
             _seatNumber > 0 && _seatNumber <= occasion.maxTickets,
             "Invalid seat number"
         );
 
-        // Check if the seat is taken by a buyer
         address buyer = seatTaken[occasion.id][_seatNumber];
         require(buyer != address(0), "Seat is not taken");
 
-        // Check if the buyer has actually bought the ticket
         require(hasBought[occasion.id][buyer], "Buyer has not bought a ticket");
 
-        // Refund the cost of the ticket
         uint256 refundAmount = occasion.cost;
         (bool success, ) = payable(buyer).call{value: refundAmount}("");
         require(success, "Refund failed");
 
-        // Update state
         occasion.tickets = occasion.tickets.sub(1);
         occasion.seatsBooked = occasion.seatsBooked.sub(1);
         seatTaken[occasion.id][_seatNumber] = address(0);
         hasBought[occasion.id][buyer] = false;
 
-        // Emit an event for the refund
         emit TicketRefunded(occasion.id, _seatNumber, refundAmount, buyer);
     }
 
@@ -177,7 +158,7 @@ contract TokenMaster is ERC721 {
 
         cost = occasion.cost;
         buyer = seatTaken[occasion.id][_seatNumber];
-        // Ensure that buyer is not the zero address
+
         require(buyer != address(0), "Seat is not taken");
 
         return (cost, buyer);

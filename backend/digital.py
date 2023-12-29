@@ -45,9 +45,6 @@ def send_transaction():
 
     data = contract.functions.sendTransaction().buildTransaction(transaction_params)
     signed_transaction = web3.eth.account.sign_transaction(data, sender_private_key)
-
-    # Replace occasion_id and seat_number with actual values
-    # refund_ticket(31, 5)
     transaction_hash = web3.eth.send_raw_transaction(signed_transaction.rawTransaction)
     print("Transaction Hash:", transaction_hash)
     message = contract.functions.sayHello().call()
@@ -106,13 +103,6 @@ def book_ticket(occasion_id, seat_number):
             print("Invalid seat number")
             return
 
-        if (
-            contract.functions.seatTaken(occasion_id, seat_number).call()
-            != "0x0000000000000000000000000000000000000000"
-        ):
-            print("Seat is already taken at this address")
-            return
-
         if occasion[8] >= occasion[4]:
             print("All seats are booked")
             return
@@ -149,10 +139,6 @@ def refund_ticket(occasion_id, seat_number):
     try:
 
         buyer_address = contract.functions.seatTaken(occasion_id, seat_number).call()
-        if buyer_address == "0x0000000000000000000000000000000000000000":
-            print(f"Seat {seat_number} in Occasion {occasion_id} is not taken")
-            return
-
         has_bought = contract.functions.hasBought(occasion_id, buyer_address).call()
         if not has_bought:
             print(

@@ -28,6 +28,8 @@ contract TokenMaster is ERC721 {
     mapping(uint256 => mapping(uint256 => address)) public seatTaken;
     mapping(uint256 => uint256[]) seatsTaken;
     mapping(address => uint) public ticketsPurchased;
+    mapping(string => uint256) occasionIdsByName;
+
     event TransactionSent(address indexed sender, uint256 amount);
     event LogSeatTaken(uint256 occasionId, uint256 seatNumber, address buyer);
 
@@ -170,6 +172,12 @@ contract TokenMaster is ERC721 {
 
     function getSeatsTaken(uint256 _id) public view returns (uint256[] memory) {
         return seatsTaken[_id];
+    }
+
+    function getOccasionIdByName(
+        string memory _name
+    ) public view returns (uint256) {
+        return occasionIdsByName[_name];
     }
 
     function sendTransaction() external payable {

@@ -3,8 +3,6 @@
 *node_modules/*
 node_modules/
 
-# Ignore environment variables file
-.env
 
 # Other standard ignores
 __pycache__/
@@ -12,3 +10,34 @@ __pycache__/
 *.pyo
 *.pyd
 *.log
+
+
+# Ignore Truffle build artifacts
+/build/
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+
+# Environments
+.env
+env/
+*env/
+env
+
+
+# pyenv
+.python-version
+
+
+# VS Code
+.code-workspace
+
+
+# Hidden JSON files
+.*.json
+.vscode/
